@@ -1,3 +1,8 @@
+//Implementation of Promises framework here //
+
+/*
+ * Operations Executed Asynchronously
+ * */
 const delayms = 1;
 
 function getCurrentCity(callback) {
@@ -7,6 +12,13 @@ function getCurrentCity(callback) {
         callback("error", city);
 
     }, delayms)
+}
+
+function fetchCurrentCity() {
+    const promise = new Promise();
+
+    getCurrentCity(promise.registerCallback);
+    return promise;
 }
 
 function getWeather(city, callback) {
@@ -26,6 +38,15 @@ function getWeather(city, callback) {
     }, delayms)
 }
 
+function fetchWeather(city) {
+    const promise = new Promise();
+
+    getWeather(city, promise.registerCallback);
+
+    return promise;
+
+}
+
 function getForecast(city, callback) {
     setTimeout(function () {
 
@@ -43,108 +64,82 @@ function getForecast(city, callback) {
     }, delayms)
 }
 
+function fetchForecast(city) {
+    const promise = new Promise();
 
-//Init Operation creates the operation object by subscribing the error or result from the operation in question
-function InitOperation() {
+    getForecast(city, promise.registerCallback)
+    return promise;
+}
 
-    const operation = {
+/*
+ * Promises Framework
+ * */
+
+function Promise() {
+
+    const promise = {
         SuccessCallbacks: [],
         ErrorCallbacks: []
     };
 
-    let noop = function () {
+    const noop = function () {
     };
 
-    operation.fail = function (error) {
-        operation.state = "fail";
-        operation.error = error;
-        operation.ErrorCallbacks.forEach(c => c(error));
-    };
-    operation.success = function (result) {
-        operation.state = "success";
-        operation.result = result;
-        operation.SuccessCallbacks.forEach(c=>c(result));
-    };
-    operation.register = function (error, result) {
+    promise.registerCallback = function (error, result) {
 
         if (error) {
-            operation.fail(error);
+            promise.fail(error);
             return;
         }
-        operation.success(result);
+        promise.success(result);
 
     };
 
-    operation.OnCompletion = function(onSuccess) {
-        if (operation.state =="success")
-            onSuccess(operation.result);
+    promise.fail = function (error) {
+        promise.state = "fail";
+        promise.error = error;
+        promise.ErrorCallbacks.forEach(c => c(error));
+    };
+
+    promise.success = function (result) {
+        promise.state = "success";
+        promise.result = result;
+        promise.SuccessCallbacks.forEach(c=>c(result));
+    };
+
+    promise.OnCompletion = function (onSuccess) {
+        if (promise.state == "success")
+            onSuccess(promise.result);
         else
-        operation.SuccessCallbacks.push(onSuccess || noop);
+            promise.SuccessCallbacks.push(onSuccess || noop);
     };
 
-    operation.onFail = function (onError){
-        if (operation.state=="fail")
-            onError(operation.error);
+    promise.onFail = function (onError) {
+        if (promise.state == "fail")
+            onError(promise.error);
         else
-        operation.ErrorCallbacks.push(onError || noop);
+            promise.ErrorCallbacks.push(onError || noop);
     };
 
 
-    return operation;
-
+    return promise;
 }
 
-
-test.("separating error and success ", done => {
-        const operation = new InitOperation();
-        doLater(getCurrentCity(operation.register));
-        var myDone = multiDone(done).AfterNCalls(2);
-        operation.onFail(myDone);
-        operation.onFail(myDone);
-       // operation.OnCompletion(myDone());
-
-
-
-    }
-);
 /*
-test.only("lexical parallelism", done => {
-    const operation = new InitOperation();
-
-    getCurrentCity(operation.register);
-    getForecast(operation.register);
-
-    operation.OnCompletion(CombineResults())
-
-});
-
-function CombineResults(result1, result2, done){
-
-   return function() {
-       if (result1 && result2) {
-           Display();
-           done();
-       }
-   }
-
-}
-
-function Display(){
-
-
-}
-*/
-function doLater (func)
-{
+ * Helper functions
+ * */
+function doLater(func) {
     setTimeout(func, 1000);
 }
-function multiDone(done) {
+
+/*
+function CallTestDoneOnce(done) {
 
     var counter = 0;
 
     return {
         AfterNCalls: function (expectedCount) {
-            return function CallDoneOnce() {
+            return function () {
                 counter++;
                 if (counter >= expectedCount)
                     done();
@@ -154,31 +149,51 @@ function multiDone(done) {
     }
 
 }
-
+*/
 /*
- test.("pass multiple callbacks -expect all are called", done => {
-
- //The const declaration creates a read-only reference to a value.
- // It does not mean the value it holds is immutable, just that
- // the variable identifier cannot be reassigned. For instance,
- // in case the content is an object,
- // this means the object itself can still be altered.
-
- const operation = fetchCurrentCity();
- const multiDone = callDone(done).afterTwoCalls();
- operation.setCallbacks(result => multiDone());
- operation.setCallbacks(result => multiDone());
-
- });
- /*
- test.("modified to pass callbacks later on",done => {
-
-
-
- const operation = fetchCurrentCity();
- operation.setCallbacks(result => done(), error => done(error));
- });
+ * Tests
  */
+/*
+test.("separating error and success ", done => {
+    const operation = new Promise();
+    doLater(getCurrentCity(operation.registerCallback));
+    var myDone = CallTestDoneOnce(done).AfterNCalls(2);
+    operation.onFail(myDone);
+    operation.onFail(myDone);
+    // operation.OnCompletion(myDone());
+
+
+});
+*/
+/*
+test.("modified to pass callbacks later on",done => {
+
+    const operation = fetchCurrentCity();
+    operation.setCallbacks(result => done(), error => done(error));
+});
+*/
+/*
+ * using promises (our Promise function that simulates promises) to test
+ * ensuring two separate operations are executed and their results are both obtained
+ * before we are done. That was hard to do with plain callbacks.
+ * */
+
+test.only("lexical parallelism", done => {
+    var city = "london";
+    var weatherPromise = fetchWeather(city);
+    var forecastPromise = fetchForecast(city);
+    weatherPromise.OnCompletion(
+        function (weather) {
+            forecastPromise.OnCompletion(function (forecast) {
+                console.log("its currently $(weather.temp) in $(city) with a five day forecast of : $(forecast.fiveDay)");
+                done();
+            });
+
+        }
+    );
+
+
+});
 
 
 
