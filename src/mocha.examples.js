@@ -37,6 +37,13 @@ test("Synchronous assert, is an uncaught error", function () {
 
 });
 
+test("Async asserting that we get a non null obj back from API",function()
+{
+  //call api endpoint
+  var result = null;
+  expect(result).toNotBe(null);
+});
+
 test("Async assert, is an uncaught error too!", function (done) {
 
   setTimeout(function () {
